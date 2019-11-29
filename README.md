@@ -1,6 +1,10 @@
 # MSS
 Mobile Sales System Application
 
-BachOffice and Terminals Update
+BachOffice
+
+KZP Updates for Smartphone and Tablet
+
+PHC ERP Installation and Configuration
 
 **************************************************************************
