@@ -1,11 +1,7 @@
-# MSS PHC
-Mobile Sales System With ERP PHC
+# MSS Primavera
+Mobile Sales System With ERP Primavera
 
 ******************************************************************************
-
-Stored Procedures
-
-Procedures de integração MSS -> PHC
 
 Mappings
 

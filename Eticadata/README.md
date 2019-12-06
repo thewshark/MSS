@@ -1,11 +1,7 @@
-# MSS PHC
-Mobile Sales System With ERP PHC
+# MSS Eticadata
+Mobile Sales System With ERP Eticadata
 
 ******************************************************************************
-
-Stored Procedures
-
-Procedures de integração MSS -> PHC
 
 Mappings
 

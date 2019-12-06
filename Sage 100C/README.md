@@ -1,11 +1,7 @@
-# MSS PHC
-Mobile Sales System With ERP PHC
+# MSS Sage 100C
+Mobile Sales System With ERP Sage 100C
 
 ******************************************************************************
-
-Stored Procedures
-
-Procedures de integração MSS -> PHC
 
 Mappings
 

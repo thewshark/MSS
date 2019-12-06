@@ -1,11 +1,7 @@
-# MSS PHC
-Mobile Sales System With ERP PHC
+# MSS Sage Retail
+Mobile Sales System With ERP Sage Retail (Este ERP está em processo de substituição pelo 50C Loja)
 
 ******************************************************************************
-
-Stored Procedures
-
-Procedures de integração MSS -> PHC
 
 Mappings
 
