@@ -19,7 +19,7 @@ Eticadata
 
 PHC
 
--> ERP Installation and Configuration
+-> PHC Installation and Configuration
 
 Primavera
 
