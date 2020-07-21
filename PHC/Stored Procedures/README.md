@@ -1,8 +1,6 @@
 # Stored Procedures para integração de documentos provenientes do MSS no ERP PHC
 
-Ultima atualização efectuada a 27/11/2019
-
-Compativel com o ERP PHC 25
+Compativel com o ERP PHC 25 / 26
 
 
 Para efetuar a instalação terá de correr pela ordem abaixo (instalação nova):
