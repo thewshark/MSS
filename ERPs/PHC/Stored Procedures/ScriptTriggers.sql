@@ -415,7 +415,7 @@ BEGIN
 
 	DECLARE @CodCli VARCHAR(30)
 	DECLARE @CodLce VARCHAR(20)
-	DECLARE @CntId VARCHAR(30)
+	DECLARE @CntId VARCHAR(50)
 	DECLARE @CntCount INT
 
 	SELECT @CodCli = CNTCLI, @CodLce = CNTLCE, @CntId = CNTCID FROM INSERTED
@@ -1123,7 +1123,7 @@ BEGIN
 	INSERT INTO MSLOG SELECT * FROM INSERTED
 END
 GO
---********************* // TR_MSSAGD_CHECK_DUPLICATE ************************************
+--********************* // TR_MSSLOG_CHECK_DUPLICATE ************************************
 
 --********************* TR_MSSFOT_CHECK_DUPLICATE ************************************
 DROP TRIGGER TR_MSSFOT_CHECK_DUPLICATE 
@@ -1153,3 +1153,25 @@ BEGIN
 END
 GO
 --********************* // TR_MSSFOT_CHECK_DUPLICATE ************************************
+
+--********************* TR_MSSAGR_CHECK_DUPLICATE ************************************
+DROP TRIGGER TR_MSSAGR_CHECK_DUPLICATE 
+GO
+
+CREATE TRIGGER TR_MSSAGR_CHECK_DUPLICATE ON MSAGR INSTEAD OF INSERT
+AS 
+BEGIN
+	SET NOCOUNT ON;
+
+	DECLARE @Stamp VARCHAR(40)
+	DECLARE @LogCount INT
+
+	SELECT @Stamp = AGRSTP FROM INSERTED
+	SELECT @LogCount = Count(*) FROM MSAGR(nolock) WHERE AGRSTP = @Stamp
+	IF @LogCount > 0
+		DELETE FROM MSAGR WHERE AGRSTP = @Stamp
+
+	INSERT INTO MSAGR SELECT * FROM INSERTED
+END
+GO
+--********************* // TR_MSSAGR_CHECK_DUPLICATE ************************************
