@@ -348,7 +348,12 @@ BEGIN
 				IF ((@ENTIDADE <> 'F') AND (@ENTIDADE <> 'P'))
 				BEGIN
 					IF @DocTip = 'S'
+					BEGIN
+						IF @no <= 0
+							SELECT TOP 1 @no=no FROM CL WITH (NOLOCK) WHERE clivd = 1 order by no
+
 						EXECUTE SPMSS_GetCliInfo @no, @estab, @CliTipo OUTPUT, @CliZona OUTPUT, @CliSegmento OUTPUT, @CliTelef OUTPUT, @nome OUTPUT, @morada OUTPUT, @local OUTPUT, @codpost OUTPUT, @ncont OUTPUT, @CliPais OUTPUT, @moeda OUTPUT, @CliLocTesoura OUTPUT, @CliContado OUTPUT, @fref OUTPUT, @ccusto OUTPUT
+					END						
 					ELSE
 						EXECUTE SPMSS_GetCliInfo2 @no, @estab, @CliTipo OUTPUT, @CliZona OUTPUT, @CliSegmento OUTPUT, @CliTelef OUTPUT, @CliPais OUTPUT, @moeda OUTPUT, @CliLocTesoura OUTPUT, @CliContado OUTPUT, @fref OUTPUT, @ccusto OUTPUT
 				END
@@ -405,7 +410,7 @@ BEGIN
 				BEGIN
 
 					IF (@DCCSSR <> '0')
-						SELECT @paStamp = pastamp FROM pa (NOLOCK)  WHERE u_nomss = @DCCSND
+						SELECT @paStamp = pastamp FROM pa (NOLOCK)  WHERE u_nomss = @DCCSND and (ISNULL(u_sermss, '')= @DCCSSR)
 					ELSE
 
 						SELECT @paStamp = pastamp FROM pa (NOLOCK)  WHERE nopat = @DCCSND
@@ -572,6 +577,7 @@ BEGIN
 
 	DECLARE @Maquina varchar(20)
 	DECLARE @Marca varchar(20)
+	DECLARE @Modelo varchar(20)
 	DECLARE @mastamp CHAR(50)
 
 	DECLARE @ousrinis VARCHAR(30)
@@ -610,7 +616,7 @@ BEGIN
 		ISNULL(SEQEDS,''),
 		ISNULL(SEQOBS,''),
 		ISNULL(SEQACL,'')
-	FROM MSSEQ(nolock) WHERE SEQEXR = @SRVEXR AND SEQSER = @SRVSER AND SEQNDC = @SRVNDC
+	FROM MSSEQ(nolock) WHERE SEQEXR = @SRVEXR AND SEQSER = @SRVSER AND SEQNDC = @SRVNDC  AND SEQSYNCR = 'N'
 
 	OPEN curEquipamentosSer
 
@@ -656,6 +662,10 @@ BEGIN
 					SET @Marca = dbo.ExtractFromACL(@SEQACL, 8)
 				ELSE
 					SET @Marca = ''
+				IF (dbo.ExtractFromACL(@SEQACL, 9) <> '')
+					SET @Modelo = dbo.ExtractFromACL(@SEQACL, 9)
+				ELSE
+					SET @Modelo = ''
 				
 				IF (@Serie = '')
 					SET @Serie = 'MSS_'+@SRVEXR+'-'+@SRVSER+'-'+CAST(@SRVNDC AS varchar(10)) + '_'+ @DateStr + @TimeStr
@@ -674,8 +684,8 @@ BEGIN
 				END
 				
 				
-				INSERT INTO ma(mastamp,design,serie,serie2,marca,instal,Dataump,Fimgar,ousrhora,usrhora,tecnico,UTECN,no,nome,TECNNM,UTECNNM,MORADA,LOCAL,ESTAB,CODPOST,vendedor,VENDNM) 
-				values(@mastamp,@SEQEDS,@Serie,@Serie2,@Marca,@Instal,@DataUMP,@Fimgar,@ousrhora,@usrhora,@tecnico,@tecnico,@SRVCLI,@SRVNOM,@tecnnm,@tecnnm,@SRVMOR,@SRVLOC,@SRVLCE,@SRVCPT,@VENDEDOR,@NomeVENDEDOR)
+				INSERT INTO ma(mastamp,design,serie,serie2,marca,maquina,instal,Dataump,Fimgar,ousrhora,usrhora,tecnico,UTECN,no,nome,TECNNM,UTECNNM,MORADA,LOCAL,ESTAB,CODPOST,vendedor,VENDNM) 
+				values(@mastamp,@SEQEDS,@Serie,@Serie2,@Marca,@Modelo,@Instal,@DataUMP,@Fimgar,@ousrhora,@usrhora,@tecnico,@tecnico,@SRVCLI,@SRVNOM,@tecnnm,@tecnnm,@SRVMOR,@SRVLOC,@SRVLCE,@SRVCPT,@VENDEDOR,@NomeVENDEDOR)
 			END
 
 
@@ -755,6 +765,10 @@ BEGIN
 	DECLARE @SITDTFHRF Datetime
 	DECLARE @moh int
 
+	DECLARE @ACL12_mhstamp char(25)
+	DECLARE @ACL11_status char(1)
+	DECLARE @Append int
+
 
     DECLARE curIntervencoes CURSOR FOR 
 	SELECT 
@@ -772,7 +786,7 @@ BEGIN
 		ISNULL(SITACL, ''),
 		ISNULL(SITVND, ''),
 		ISNULL(SITTERM, '')
-	FROM MSSIT(nolock) WHERE SITEXR = @SRVEXR AND SITSER = @SRVSER AND SITNDC = @SRVNDC
+	FROM MSSIT(nolock) WHERE SITEXR = @SRVEXR AND SITSER = @SRVSER AND SITNDC = @SRVNDC AND SITSYNCR = 'N' AND dbo.ExtractFromACL(SITACL, 11) IN ('A','C')
 
 	OPEN curIntervencoes
 
@@ -794,12 +808,19 @@ BEGIN
 				
 			SELECT @datapat = pdata, @horapat = phora, @tecnico = tecnico, @tecnnm = tecnnm, @no = no, @estab = estab, @nome = nome, @nopat = nopat, @fref = fref FROM pa WHERE pastamp = @pastamp
 
+			-- Tecnico
+			IF (dbo.ExtractFromACL(@SITACL, 13) <> '')
+				SET @tecnico = CAST(dbo.ExtractFromACL(@SITACL, 13) as  numeric)
+
 			-- Dados do equipamento
+			SET @Marca = ''
+			SET @Maquina = ''
+			SET @Tipo = ''
 			IF (@mastamp <> '')
 				SELECT @Marca = marca, @Maquina = maquina, @Tipo = tipo FROM ma WHERE mastamp = @mastamp
 			ELSE
 			BEGIN
-				SET @MARCA = ''
+				SET @Marca = ''
 				SET @Maquina = ''
 				SET @Tipo = ''
 			END
@@ -828,10 +849,32 @@ BEGIN
 				SET @horaf = ''
 			END
 
-			
+			SET @Append = 0
+			SET @ACL11_status = dbo.ExtractFromACL(@SITACL, 11)
+			SET @ACL12_mhstamp = dbo.ExtractFromACL(@SITACL, 12)
 
-			SELECT @mhstamp = mhstamp FROM mh WHERE nopat = @nopat AND data = @data AND hora = @hora
-			IF @@ROWCOUNT = 0
+			SET @Append = 0
+			IF @ACL11_status = 'A'
+			BEGIN
+				SET @mhstamp = 'MSS_' + @DateStr + @TimeStr
+				SET @Append = 1
+			END
+			ELSE IF ((@ACL11_status = '') OR (@ACL11_status = 'C'))
+			BEGIN
+				IF (@ACL12_mhstamp <> '')
+				BEGIN
+					SET @mhstamp = @ACL12_mhstamp
+					SET @Append = 0
+				END
+				ELSE
+				BEGIN
+					SELECT @mhstamp = mhstamp FROM mh WHERE nopat = @nopat AND data = @data AND hora = @hora
+					IF @@ROWCOUNT = 0
+						SET @Append = 1
+				END
+			END
+
+			IF @Append = 1
 			BEGIN
 				SET @mhstamp = 'MSS_' + @DateStr + @TimeStr
 
@@ -922,7 +965,7 @@ BEGIN
 	SELECT 
 		ISNULL(FOTFIC, ''),
 		ISNULL(FOTTERM, '')
-	FROM MSFOT(nolock) WHERE FOTEXR = @SRVEXR AND FOTTPD = 'SRVC' AND FOTSER = @SRVSER AND FOTNDC = @SRVNDC
+	FROM MSFOT(nolock) WHERE FOTEXR = @SRVEXR AND FOTTPD = 'SRVC' AND FOTSER = @SRVSER AND FOTNDC = @SRVNDC  AND FOTSYNCR = 'N'
 
 	OPEN curAnexos
 
@@ -1188,9 +1231,18 @@ BEGIN
 
 					IF (@SRVSER <> '0') -- significa que é um serviço criado no tablet
 					BEGIN
-
+						
 						SELECT @nopat = (ISNULL(Max(nopat), 0) + 1) FROM pa
-						SELECT @tecnico = cm, @tecnnm = nome FROM CM4 (NOLOCK) WHERE cm = @SRVSER
+						
+						IF (dbo.ExtractFromACL(@SRVACL, 10) <> '')
+						BEGIN
+							SET @tecnico = CAST(dbo.ExtractFromACL(@SRVACL, 10) AS numeric)
+							SELECT @tecnnm = nome FROM CM4 (NOLOCK) WHERE cm = @tecnico
+						END
+						ELSE
+						BEGIN
+							SELECT @tecnico = cm, @tecnnm = nome FROM CM4 (NOLOCK) WHERE cm = @SRVSER
+						END
 						-- novo pat do técnico
 						SET @PAExists = 0
 						SET @pastamp = 'MSS_' + @DateStr + @TimeStr
@@ -1239,8 +1291,8 @@ BEGIN
 					IF @PAExists = 0
 					BEGIN
 						--INSERT
-						INSERT INTO pa(no,estab,tecnico,tecnnm,pastamp,nopat,pdata,phora,ptipo,datat,horat,nome,codpost,morada,local,ncont,pquem,problema,fref,ousrinis,ousrdata,ousrhora,usrinis,usrdata,usrhora,fechado,fdata,fhora,fquem,solucao,u_nomss)
-						VALUES(@no,@estab,@tecnico,@tecnnm,@pastamp,@nopat,@pdata,@phora,@ptipo,@datat,@horat,@nome,@codpost,@morada,@local,@ncont,@pquem,@problema,@fref,@ousrinis,@ousrdata,@ousrhora,@usrinis,@usrdata,@usrhora,@fechado,@fdata,@fhora,@fquem,@solucao,@SRVNDC)
+						INSERT INTO pa(no,estab,tecnico,tecnnm,pastamp,nopat,pdata,phora,ptipo,datat,horat,nome,codpost,morada,local,ncont,pquem,problema,fref,ousrinis,ousrdata,ousrhora,usrinis,usrdata,usrhora,fechado,fdata,fhora,fquem,solucao,u_nomss,resumo,u_sermss)
+						VALUES(@no,@estab,@tecnico,@tecnnm,@pastamp,@nopat,@pdata,@phora,@ptipo,@datat,@horat,@nome,@codpost,@morada,@local,@ncont,@pquem,@problema,@fref,@ousrinis,@ousrdata,@ousrhora,@usrinis,@usrdata,@usrhora,@fechado,@fdata,@fhora,@fquem,@solucao,@SRVNDC,@SRVDSC,@SRVSER)
 					END
 					ELSE
 					BEGIN
@@ -1274,7 +1326,8 @@ BEGIN
 							fhora = @fhora,
 							--fquem = @fquem,
 							fquem = tecnnm,
-							solucao = @solucao
+							solucao = @solucao,
+							resumo = @SRVDSC
 						WHERE pastamp = @pastamp
 					END
 
